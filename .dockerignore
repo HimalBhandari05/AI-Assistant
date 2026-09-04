@@ -1,0 +1,32 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Git metadata
+.git/
+.gitignore
+
+# Environment configurations and secrets
+.env
+.env.*
+*.env
+
+# Local data and ChromaDB vector store
+data/
+data/chroma/
+*.json
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+*.log

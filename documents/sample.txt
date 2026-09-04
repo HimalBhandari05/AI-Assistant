@@ -1,0 +1,7 @@
+Artificial Intelligence (AI) is the field of computer science dedicated to creating systems capable of performing tasks that typically require human intelligence. These tasks include reasoning, learning from experience, understanding natural language, recognizing patterns, and making decisions. Modern AI systems predominantly rely on machine learning algorithms trained on large datasets.
+
+Machine learning is a subset of AI focused on building applications that learn from data and improve their accuracy over time without being explicitly programmed. Deep learning, a specialized branch of machine learning, utilizes multi-layered artificial neural networks inspired by the human brain. These deep neural networks excel at processing unstructured data such as text, images, and audio.
+
+Search algorithms are fundamental procedures used in computer science to locate specific data items within data structures. Linear search checks every element sequentially until the desired item is found, resulting in O(n) time complexity. Binary search is significantly more efficient, operating in O(log n) time by repeatedly dividing a sorted dataset in half.
+
+Retrieval-Augmented Generation (RAG) is an architectural framework that enhances the accuracy and reliability of large language models. RAG retrieves relevant facts and contextual information from external knowledge bases before generating a response. This process reduces model hallucinations, enables source attribution, and keeps responses up to date without retraining the underlying language model.
