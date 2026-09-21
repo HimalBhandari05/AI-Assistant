@@ -26,19 +26,22 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(
         "**Features:**\n"
-        "- Document Q&A (RAG)\n"
+        "- Multi-Step Agentic Loop (W16)\n"
+        "- Dynamic RAG Search & Query Reformulation\n"
         "- Math Calculator Tool\n"
-        "- Automatic Topic Categorization\n"
+        "- Ambiguity Clarification Handling\n"
+        "- Topic Categorization\n"
         "- Automatic Transient Retries\n"
         "- In-Memory Rate Limiting\n"
         "- Automated LLM Fallback\n"
-        "- In-Memory Response Caching"   )
+        "- In-Memory Response Caching"
+    )
 
 # Input form
 with st.form("ask_form", clear_on_submit=False):
     question = st.text_area(
         label="Your Question:",
-        placeholder="e.g. What is binary search? or What is 25 multiplied by 18?",
+        placeholder="e.g. Compare linear and binary search complexity, or What is 45 multiplied by 12?",
         height=100,
     )
     submitted = st.form_submit_button("Submit Question", type="primary", use_container_width=True)
@@ -60,10 +63,19 @@ if submitted:
                     data = response.json()
                     answer = data.get("answer", "No answer provided.")
                     topic = data.get("topic", "General")
+                    status = data.get("status", "completed")
+                    steps = data.get("trajectory_length", 1)
+                    clarification = data.get("clarification_required", False)
 
                     st.markdown("### Response")
-                    st.write(answer)
-                    st.markdown(f"**Detected Topic:** `{topic}`")
+                    if clarification or status == "clarification_required":
+                        st.info(f"🤔 **Clarification Needed:**\n\n{answer}")
+                    elif status == "max_iterations_exceeded":
+                        st.warning(f"⚠️ **Partial Result (Budget Limit Reached):**\n\n{answer}")
+                    else:
+                        st.write(answer)
+
+                    st.caption(f"🏷️ **Topic:** `{topic}` • 🔄 **Agent Steps Used:** `{steps}` • ⚡ **Status:** `{status}`")
 
                 elif response.status_code == 429:
                     try:

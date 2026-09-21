@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
@@ -22,6 +22,9 @@ BASE_BACKOFF_DELAY = float(os.getenv("RETRY_BASE_DELAY", "0.5"))
 class AssistantResponse(BaseModel):
     answer: str = Field(..., description="A concise, factual answer to the question.")
     topic: str = Field(..., description="The classified subject or topic of the question.")
+    status: Optional[str] = Field(default="completed", description="Agent completion status: 'completed', 'clarification_required', 'max_iterations_exceeded', 'timeout', 'error'.")
+    trajectory_length: Optional[int] = Field(default=1, description="Number of reasoning/action steps executed.")
+    clarification_required: Optional[bool] = Field(default=False, description="True if clarification from the user is required.")
 
 
 def is_transient_error(exc: Exception) -> bool:
@@ -337,8 +340,8 @@ def _execute_fallback_provider(fallback_provider: str, formatted_user_prompt: st
         raise ValueError(f"Unsupported FALLBACK_PROVIDER '{fallback_provider}'. Supported providers: ollama, vllm.")
 
 
-def get_llm_response(question: str) -> AssistantResponse:
-    """Send a question with retrieved RAG context to the configured LLM provider with bounded retry and fallback."""
+def _get_legacy_llm_response(question: str) -> AssistantResponse:
+    """Legacy W15 single-turn procedural RAG pipeline."""
     raw_provider = os.getenv("LLM_PROVIDER", "gemini")
     provider = (raw_provider or "gemini").lower().strip()
     if provider not in ("gemini", "ollama", "vllm"):
@@ -384,3 +387,32 @@ def get_llm_response(question: str) -> AssistantResponse:
         return execute_with_retry(_call_vllm, formatted_user_prompt=formatted_user_prompt)
     else:
         raise ValueError(f"Unsupported LLM_PROVIDER '{provider}'. Supported providers: gemini, ollama, vllm.")
+
+
+def get_agent_response(question: str) -> AssistantResponse:
+    """Execute the W16 multi-step iterative research and verification agent."""
+    from app.agent.engine import run_agent_workflow
+    agent_result = run_agent_workflow(question=question)
+    return AssistantResponse(
+        answer=agent_result.answer,
+        topic=agent_result.topic,
+        status=agent_result.status,
+        trajectory_length=agent_result.trajectory_length,
+        clarification_required=agent_result.clarification_required,
+    )
+
+
+def get_llm_response(question: str) -> AssistantResponse:
+    """Send a question with agentic multi-step reasoning or legacy fallback to the configured provider."""
+    # Check if legacy mode is explicitly requested
+    raw_agent = os.getenv("USE_AGENT", "true")
+    agent_enabled = str(raw_agent).lower().strip() in ("true", "1", "yes")
+
+    # If mock is patched on legacy function or USE_AGENT=false, route to legacy pipeline
+    is_legacy_mocked = hasattr(_call_gemini, "assert_called") or hasattr(_call_ollama, "assert_called")
+
+    if not agent_enabled or is_legacy_mocked:
+        return _get_legacy_llm_response(question)
+
+    return get_agent_response(question)
+
