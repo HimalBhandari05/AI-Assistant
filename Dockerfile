@@ -1,22 +1,28 @@
 # Use an official Python 3.12 slim runtime as base image
 FROM python:3.12-slim
 
+# Install uv from official Astral image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Set working directory
 WORKDIR /app
 
-# Set environment variables: disable pyc generation and unbuffer logs
+# Set environment variables: disable pyc generation, unbuffer logs, and add venv to PATH
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    CHROMA_PATH=/app/data/chroma
+    CHROMA_PATH=/app/data/chroma \
+    PATH="/app/.venv/bin:$PATH"
 
-# Install build essentials if needed for wheels, then clean up
+# Install curl for container health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency specifications
+COPY pyproject.toml uv.lock ./
+
+# Install locked dependencies into container venv using uv
+RUN uv sync --frozen --no-dev
 
 # Copy application source, UI, and documents
 COPY app/ ./app/

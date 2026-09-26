@@ -10,7 +10,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from app.agent.engine import AgentResult, run_agent_workflow
+from app.mlops.trace_schema import AgentExecutionTrace, build_trace_from_agent_result
 from tests.evaluation.benchmark_cases import BenchmarkCase, BENCHMARK_CASES
 
 logger = logging.getLogger("ai_assistant.evaluation")
@@ -52,6 +52,7 @@ class BenchmarkSummary(BaseModel):
     soft_failures: int
     cascading_soft_failures: int
     results: List[CaseEvaluationResult]
+    traces: List[Any] = Field(default_factory=list, description="Optional collection of AgentExecutionTrace objects.")
 
 
 def check_numerical_result_in_text(expected: float, text: str, tolerance: float = 0.05) -> bool:
@@ -84,7 +85,7 @@ def check_keywords_in_text(keywords: List[str], text: str, min_match_ratio: floa
     return ratio >= min_match_ratio or matched >= 1
 
 
-def evaluate_single_case(case: BenchmarkCase, agent_result: AgentResult) -> CaseEvaluationResult:
+def evaluate_single_case(case: BenchmarkCase, agent_result: Any) -> CaseEvaluationResult:
     """Evaluate an agent execution against a specific benchmark case criteria."""
     status_match = (agent_result.status == case.expected_status)
 
@@ -346,14 +347,19 @@ def generate_markdown_report(summary: BenchmarkSummary, config: Optional[dict] =
 
 def run_benchmark_evaluation(
     cases: Optional[List[BenchmarkCase]] = None,
-    agent_runner_fn: Optional[Callable[[str], AgentResult]] = None,
+    agent_runner_fn: Optional[Callable[[str], Any]] = None,
     output_report_path: Optional[str] = "tests/evaluation/results/agent_evaluation_results.md",
 ) -> BenchmarkSummary:
     """Execute the complete evaluation benchmark and write the results report to disk."""
     bench_cases = cases or BENCHMARK_CASES
-    runner = agent_runner_fn or (lambda q: run_agent_workflow(question=q))
+    if agent_runner_fn is None:
+        from app.agent.engine import run_agent_workflow
+        runner = lambda q: run_agent_workflow(question=q)
+    else:
+        runner = agent_runner_fn
 
     results: List[CaseEvaluationResult] = []
+    traces: List[AgentExecutionTrace] = []
 
     print(f"\n=======================================================")
     print(f"Starting W16 Agent Evaluation Benchmark ({len(bench_cases)} cases)")
@@ -362,6 +368,7 @@ def run_benchmark_evaluation(
     for idx, case in enumerate(bench_cases, 1):
         print(f"[{idx:02d}/{len(bench_cases):02d}] Evaluating {case.id} ({case.category})...")
         t0 = time.perf_counter()
+        agent_result = None
         try:
             agent_result = runner(case.question)
             eval_res = evaluate_single_case(case, agent_result)
@@ -385,11 +392,27 @@ def run_benchmark_evaluation(
                 execution_time_seconds=round(time.perf_counter() - t0, 4),
             )
 
+        # Collect / build trace
+        if agent_result is not None:
+            if getattr(agent_result, "trace", None) is not None:
+                trace_obj = agent_result.trace
+                if not trace_obj.case_id:
+                    trace_obj.case_id = case.id
+                traces.append(trace_obj)
+            else:
+                trace_obj = build_trace_from_agent_result(
+                    agent_result=agent_result,
+                    query=case.question,
+                    case_id=case.id,
+                )
+                traces.append(trace_obj)
+
         status_flag = "PASS" if eval_res.success else "FAIL"
         print(f"       -> Result: {status_flag} | Steps: {eval_res.trajectory_length} | Tokens: {eval_res.total_tokens} | Status: {eval_res.status}")
         results.append(eval_res)
 
     summary = compute_benchmark_summary(results)
+    summary.traces = traces
 
     print("\n=======================================================")
     print(f"Evaluation Complete!")

@@ -55,9 +55,12 @@ data/embeddings.json
 # Ignore generated/local data
 data/
 
-# Logs
+# Logs & MLOps
 *.log
 logs/
+mlruns/
+mlflow.db
+*.db
 
 # Streamlit
 .streamlit/secrets.toml

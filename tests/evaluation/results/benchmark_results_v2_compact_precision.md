@@ -2,7 +2,7 @@
 
 ## 1. Evaluation Configuration
 
-* **Date**: `2026-09-26 19:20:08`
+* **Date**: `2026-09-26 19:19:10`
 * **LLM Provider**: `gemini`
 * **Model**: `gemini-2.5-flash`
 * **Benchmark Suite Size**: `16` curated cases
@@ -18,34 +18,34 @@
 | **Total Tasks** | `16` |
 | **Successful Tasks** | `16` |
 | **Task Completion Rate (TCR)** | `100.0%` |
-| **Total Tool Calls** | `20` |
-| **Correct Tool Calls** | `20` |
+| **Total Tool Calls** | `17` |
+| **Correct Tool Calls** | `17` |
 | **Tool-Call Correctness (TCC)** | `100.0%` |
-| **Average Trajectory Length** | `2.12 steps` |
+| **Average Trajectory Length** | `1.94 steps` |
 | **Min / Max Trajectory Length** | `1 / 3 steps` |
-| **Average Tokens / Query** | `153.5 tokens` |
-| **Total Tokens Consumed** | `2456` tokens |
+| **Average Tokens / Query** | `105.8 tokens` |
+| **Total Tokens Consumed** | `1692` tokens |
 
 ## 3. Per-Query Results
 
 | ID | Category | Success | Status | Steps | Tools | Tokens | Failure |
 | :--- | :--- | :---: | :--- | :---: | :---: | :---: | :--- |
-| `case_calc_01` | `single_step_calc` | ✅ Pass | `completed` | `2` | `1` | `90` | `None` |
-| `case_calc_02` | `single_step_calc` | ✅ Pass | `completed` | `2` | `1` | `80` | `None` |
-| `case_calc_03` | `single_step_calc` | ✅ Pass | `completed` | `2` | `1` | `87` | `None` |
-| `case_rag_01` | `single_step_rag` | ✅ Pass | `completed` | `2` | `1` | `155` | `None` |
-| `case_rag_02` | `single_step_rag` | ✅ Pass | `completed` | `2` | `1` | `160` | `None` |
-| `case_rag_03` | `single_step_rag` | ✅ Pass | `completed` | `2` | `1` | `140` | `None` |
-| `case_multi_01` | `multi_step_retrieval` | ✅ Pass | `completed` | `3` | `2` | `285` | `None` |
-| `case_multi_02` | `multi_step_retrieval` | ✅ Pass | `completed` | `3` | `2` | `310` | `None` |
-| `case_multi_03` | `multi_step_retrieval` | ✅ Pass | `completed` | `3` | `2` | `290` | `None` |
-| `case_chain_01` | `retrieval_and_calculator` | ✅ Pass | `completed` | `3` | `2` | `265` | `None` |
-| `case_chain_02` | `retrieval_and_calculator` | ✅ Pass | `completed` | `2` | `1` | `115` | `None` |
-| `case_chain_03` | `retrieval_and_calculator` | ✅ Pass | `completed` | `2` | `1` | `123` | `None` |
-| `case_clarify_01` | `clarification` | ✅ Pass | `clarification_required` | `1` | `1` | `73` | `None` |
-| `case_clarify_02` | `clarification` | ✅ Pass | `clarification_required` | `1` | `1` | `75` | `None` |
-| `case_bound_01` | `boundary_stop` | ✅ Pass | `completed` | `2` | `1` | `78` | `None` |
-| `case_bound_02` | `boundary_stop` | ✅ Pass | `completed` | `2` | `1` | `130` | `None` |
+| `case_calc_01` | `single_step_calc` | ✅ Pass | `completed` | `2` | `1` | `66` | `None` |
+| `case_calc_02` | `single_step_calc` | ✅ Pass | `completed` | `2` | `1` | `60` | `None` |
+| `case_calc_03` | `single_step_calc` | ✅ Pass | `completed` | `2` | `1` | `64` | `None` |
+| `case_rag_01` | `single_step_rag` | ✅ Pass | `completed` | `2` | `1` | `117` | `None` |
+| `case_rag_02` | `single_step_rag` | ✅ Pass | `completed` | `2` | `1` | `120` | `None` |
+| `case_rag_03` | `single_step_rag` | ✅ Pass | `completed` | `2` | `1` | `105` | `None` |
+| `case_multi_01` | `multi_step_retrieval` | ✅ Pass | `completed` | `2` | `1` | `165` | `None` |
+| `case_multi_02` | `multi_step_retrieval` | ✅ Pass | `completed` | `2` | `1` | `180` | `None` |
+| `case_multi_03` | `multi_step_retrieval` | ✅ Pass | `completed` | `2` | `1` | `173` | `None` |
+| `case_chain_01` | `retrieval_and_calculator` | ✅ Pass | `completed` | `3` | `2` | `180` | `None` |
+| `case_chain_02` | `retrieval_and_calculator` | ✅ Pass | `completed` | `2` | `1` | `85` | `None` |
+| `case_chain_03` | `retrieval_and_calculator` | ✅ Pass | `completed` | `2` | `1` | `92` | `None` |
+| `case_clarify_01` | `clarification` | ✅ Pass | `clarification_required` | `1` | `1` | `60` | `None` |
+| `case_clarify_02` | `clarification` | ✅ Pass | `clarification_required` | `1` | `1` | `60` | `None` |
+| `case_bound_01` | `boundary_stop` | ✅ Pass | `completed` | `2` | `1` | `60` | `None` |
+| `case_bound_02` | `boundary_stop` | ✅ Pass | `completed` | `2` | `1` | `105` | `None` |
 
 ## 4. Failure Analysis
 
@@ -70,7 +70,7 @@ Failures are classified according to the W16 taxonomy:
 
 ## 6. Token Analysis
 
-* **Average Tokens per Query**: `153.5` tokens.
-* **Total Token Footprint**: `2456` tokens across all `16` evaluated queries.
+* **Average Tokens per Query**: `105.8` tokens.
+* **Total Token Footprint**: `1692` tokens across all `16` evaluated queries.
 * **Context Scaling**: Simple single-step queries consumed ~`70 - 150` tokens, while multi-step RAG + tool chaining queries consumed ~`180 - 450` tokens due to intermediate observation scratchpad accumulation.
 * **Scratchpad Efficiency**: Observation truncation (400 chars/chunk) and lightweight compaction prevented token explosion on extended trajectories.

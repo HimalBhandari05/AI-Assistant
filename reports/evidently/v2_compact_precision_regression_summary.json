@@ -1,0 +1,40 @@
+{
+  "reference_version": "v1_baseline",
+  "current_version": "v2_compact_precision",
+  "timestamp": "2026-09-26T13:35:25.681242+00:00",
+  "total_cases": 16,
+  "passed_cases": 16,
+  "pct_tests_passed": 100.0,
+  "task_completion_rate": 100.0,
+  "tool_call_correctness": 100.0,
+  "avg_trajectory_length": 1.94,
+  "ref_avg_trajectory_length": 2.12,
+  "avg_tokens_per_query": 105.75,
+  "ref_avg_tokens_per_query": 153.5,
+  "trajectory_efficiency_score": 51.55,
+  "token_cost_ratio": 0.689,
+  "regression_detected": false,
+  "regression_reasons": [],
+  "failed_cases": [],
+  "metrics": {
+    "pct_tests_passed": 100.0,
+    "task_completion_rate": 100.0,
+    "tool_call_correctness": 100.0,
+    "avg_trajectory_length": 1.94,
+    "avg_tokens_per_query": 105.75,
+    "trajectory_efficiency_score": 51.55,
+    "token_cost_ratio": 0.689,
+    "hard_failures": 0.0,
+    "soft_failures": 0.0,
+    "regression_detected": 0.0
+  },
+  "thresholds": {
+    "min_pct_tests_passed": 95.0,
+    "min_task_completion_rate": 95.0,
+    "min_tool_call_correctness": 95.0,
+    "max_trajectory_length_multiplier": 1.5,
+    "max_token_growth_multiplier": 1.75,
+    "max_hard_failures": 0
+  },
+  "html_report_path": "reports/evidently/v2_compact_precision_vs_v1_baseline.html"
+}

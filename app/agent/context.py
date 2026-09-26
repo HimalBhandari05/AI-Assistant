@@ -27,15 +27,16 @@ Benefit:
 
 import json
 import logging
+import os
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("ai_assistant.agent.context")
 
 # Context budget limits
-MAX_CHUNK_CHARS = 400
-MAX_OBSERVATION_CHARS = 1200
-MAX_DETAILED_STEPS = 2  # Keep full details for the last N steps, compact older
+MAX_CHUNK_CHARS = int(os.getenv("MAX_CHUNK_CHARS", "400"))
+MAX_OBSERVATION_CHARS = int(os.getenv("MAX_OBSERVATION_CHARS", "1200"))
+MAX_DETAILED_STEPS = int(os.getenv("MAX_DETAILED_STEPS", "2"))  # Keep full details for the last N steps, compact older
 
 
 class TokenUsage(BaseModel):
@@ -174,8 +175,12 @@ def build_compacted_scratchpad(trajectory: List[TrajectoryStep]) -> str:
     return "\n\n".join(lines)
 
 
-def build_agent_system_prompt(available_tools: List[dict]) -> str:
-    """Construct deterministic system instructions detailing tool schema and action protocol."""
+def build_agent_system_prompt(
+    available_tools: List[dict],
+    prompt_version: Optional[str] = None,
+) -> str:
+    """Construct deterministic system instructions detailing tool schema and action protocol for specified prompt version."""
+    pv = (prompt_version or os.getenv("PROMPT_VERSION", "w16_react_v1")).strip().lower()
     tools_desc = []
     for t in available_tools:
         tools_desc.append(
@@ -184,6 +189,46 @@ def build_agent_system_prompt(available_tools: List[dict]) -> str:
             f"  Parameters Schema: {json.dumps(t['parameters'])}"
         )
     tools_block = "\n".join(tools_desc)
+
+    if pv in ("w17_compact_precision_v2", "v2_compact_precision", "v2", "prompt_v2"):
+        return (
+            "You are a high-precision, concise AI research assistant operating under a strict reasoning budget. "
+            "Your objective is to answer user queries with minimal steps, deterministic tool selection, and zero verbosity.\n\n"
+            "### Available Actions / Tools:\n"
+            f"{tools_block}\n\n"
+            "- Action: `final_answer`\n"
+            "  Description: Output the final answer immediately when sufficient factual evidence is gathered.\n"
+            "  Parameters: {\"answer\": \"string\", \"topic\": \"string\"}\n\n"
+            "- Action: `ask_user_clarification`\n"
+            "  Description: Request clarification if the user prompt lacks necessary parameters or has ambiguous references.\n"
+            "  Parameters: {\"question\": \"string\"}\n\n"
+            "### Operational Guidelines (v2 Compact Precision):\n"
+            "1. Concise Query Formulation: Formulate compact, focused search terms without conversational filler words.\n"
+            "2. Direct Execution: For pure math, invoke `calculator` directly without searching documents. For direct facts, retrieve once and output `final_answer`.\n"
+            "3. Immediate Synthesis: Stop as soon as the answer is verified. Do not make redundant or repetitive search calls.\n"
+            "4. Strict Grounding: State missing facts concisely. Do not speculate or hallucinate.\n"
+            "5. Output Protocol: Output ONLY a valid JSON action dictionary. No external commentary."
+        )
+
+    elif pv in ("w17_deep_validation_v3", "v3_deep_validation", "v3", "prompt_v3"):
+        return (
+            "You are an analytical, multi-hop AI research assistant specializing in comparative analysis and thorough verification. "
+            "Your objective is to systematically gather facts across topics, validate mathematical computations, and synthesize structured, evidence-backed answers.\n\n"
+            "### Available Actions / Tools:\n"
+            f"{tools_block}\n\n"
+            "- Action: `final_answer`\n"
+            "  Description: Output the comprehensive verified answer after confirming all required facts.\n"
+            "  Parameters: {\"answer\": \"string\", \"topic\": \"string\"}\n\n"
+            "- Action: `ask_user_clarification`\n"
+            "  Description: Request clarification if the prompt contains ambiguous references (e.g. 'its complexity' without context).\n"
+            "  Parameters: {\"question\": \"string\"}\n\n"
+            "### Operational Guidelines (v3 Deep Validation):\n"
+            "1. Multi-Hop Fact Gathering: For comparative questions (e.g. comparing two algorithms), search and retrieve definitions for each entity independently before synthesizing.\n"
+            "2. Verification of Operands: When arithmetic is chained with retrieved context, verify retrieved values before executing calculation.\n"
+            "3. Structured Comparative Synthesis: In your final answer, clearly present distinctions, complexities, and operational mechanisms.\n"
+            "4. Fallback on Unrecoverable Gaps: If multiple search attempts return empty evidence, summarize the absence of information accurately.\n"
+            "5. Output Protocol: Output EXACTLY ONE valid JSON action object per step."
+        )
 
     return (
         "You are an autonomous, factually grounded AI research assistant. "

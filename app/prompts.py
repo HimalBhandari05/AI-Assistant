@@ -1,5 +1,7 @@
 """System prompts for the AI Assistant."""
 
+PROMPT_VERSION = "w16_react_v1"
+
 SYSTEM_PROMPT = (
     "You are a helpful, concise, and factually grounded AI assistant. "
     "When retrieved document context is provided, prioritize it to answer questions about the documents. "

@@ -144,10 +144,11 @@ def _call_gemini(question: str, formatted_user_prompt: str) -> AssistantResponse
 
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     client = genai.Client(api_key=api_key)
+    llm_temp = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 
     initial_config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
-        temperature=0.2,
+        temperature=llm_temp,
         tools=[calculator],
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
@@ -190,7 +191,7 @@ def _call_gemini(question: str, formatted_user_prompt: str) -> AssistantResponse
 
         final_config = types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
-            temperature=0.2,
+            temperature=llm_temp,
             response_mime_type="application/json",
             response_schema=AssistantResponse,
         )
@@ -238,6 +239,7 @@ def _call_ollama(formatted_user_prompt: str) -> AssistantResponse:
     """Execute inference using local Ollama provider."""
     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     model = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+    llm_temp = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 
     payload = {
         "model": model,
@@ -247,7 +249,7 @@ def _call_ollama(formatted_user_prompt: str) -> AssistantResponse:
         ],
         "format": AssistantResponse.model_json_schema(),
         "options": {
-            "temperature": 0.2,
+            "temperature": llm_temp,
         },
         "stream": False,
     }
@@ -281,6 +283,7 @@ def _call_vllm(formatted_user_prompt: str) -> AssistantResponse:
     """Execute inference using local vLLM OpenAI-compatible endpoint."""
     base_url = os.getenv("VLLM_BASE_URL", "http://localhost:8001/v1").rstrip("/")
     model = os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-3B-Instruct")
+    llm_temp = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 
     payload = {
         "model": model,
@@ -288,7 +291,7 @@ def _call_vllm(formatted_user_prompt: str) -> AssistantResponse:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": formatted_user_prompt},
         ],
-        "temperature": 0.2,
+        "temperature": llm_temp,
         "response_format": {"type": "json_object"},
     }
 

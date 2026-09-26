@@ -22,6 +22,7 @@ from app.agent.context import (
 from app.agent.metrics import AgentExecutionMetrics
 from app.agent.tools import ToolRegistry, default_tool_registry
 from app.llm import execute_with_retry, is_transient_error
+from app.mlops.trace_schema import AgentExecutionTrace, build_trace_from_agent_result
 
 logger = logging.getLogger("ai_assistant.agent.engine")
 
@@ -39,6 +40,7 @@ class AgentResult(BaseModel):
     clarification_required: bool = Field(default=False, description="True if clarification from the user is required.")
     token_usage: TokenUsage = Field(default_factory=TokenUsage, description="Aggregated token usage across iterations.")
     metrics: Optional[AgentExecutionMetrics] = Field(default=None, description="Observability telemetry.")
+    trace: Optional[AgentExecutionTrace] = Field(default=None, description="Complete structured telemetry trace.")
 
 
 def parse_model_action_json(raw_text: str) -> dict:
@@ -80,9 +82,11 @@ def _query_provider_for_action(
     system_prompt: str,
     iteration_prompt: str,
     provider: str = "gemini",
+    temperature: Optional[float] = None,
 ) -> Tuple[dict, int, int]:
     """Dispatch prompt to configured LLM provider and return (action_dict, prompt_tokens, completion_tokens)."""
     norm_provider = (provider or "gemini").lower().strip()
+    temp = float(os.getenv("AGENT_TEMPERATURE", "0.1")) if temperature is None else float(temperature)
 
     if norm_provider == "gemini":
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -94,7 +98,7 @@ def _query_provider_for_action(
 
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
-            temperature=0.1,
+            temperature=temp,
             response_mime_type="application/json",
         )
 
@@ -134,7 +138,7 @@ def _query_provider_for_action(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": iteration_prompt},
             ],
-            "options": {"temperature": 0.1},
+            "options": {"temperature": temp},
             "stream": False,
         }
 
@@ -161,7 +165,7 @@ def _query_provider_for_action(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": iteration_prompt},
             ],
-            "temperature": 0.1,
+            "temperature": temp,
             "response_format": {"type": "json_object"},
         }
 
@@ -192,6 +196,8 @@ def run_agent_workflow(
     max_iterations: int = DEFAULT_MAX_ITERATIONS,
     max_execution_time_seconds: float = DEFAULT_MAX_EXECUTION_TIME,
     provider: Optional[str] = None,
+    temperature: Optional[float] = None,
+    prompt_version: Optional[str] = None,
 ) -> AgentResult:
     """Execute the multi-step iterative research and verification agent loop.
 
@@ -201,6 +207,8 @@ def run_agent_workflow(
         max_iterations: Maximum allowed reasoning steps (default: 5).
         max_execution_time_seconds: Timeout ceiling in seconds (default: 30.0).
         provider: Overriding LLM provider (defaults to os.getenv('LLM_PROVIDER', 'gemini')).
+        temperature: Sampling temperature (defaults to AGENT_TEMPERATURE env or 0.1).
+        prompt_version: Prompt template identifier (defaults to PROMPT_VERSION env or 'w16_react_v1').
 
     Returns:
         Structured AgentResult containing final answer, trajectory, metrics, and token usage.
@@ -211,7 +219,7 @@ def run_agent_workflow(
     active_provider = (raw_prov or "gemini").lower().strip()
 
     available_tools = reg.list_tools()
-    system_prompt = build_agent_system_prompt(available_tools)
+    system_prompt = build_agent_system_prompt(available_tools, prompt_version=prompt_version)
 
     state = AgentState(
         user_question=question,
@@ -223,6 +231,17 @@ def run_agent_workflow(
     # Track recent action signatures for duplicate-loop detection
     seen_action_signatures: Dict[str, int] = {}
 
+    def _finalize_result(res: AgentResult) -> AgentResult:
+        res.trace = build_trace_from_agent_result(
+            agent_result=res,
+            query=question,
+            config_version=prompt_version or "v1_baseline",
+            prompt_version=prompt_version or "v1_baseline",
+            model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash") if active_provider == "gemini" else active_provider,
+            temperature=float(os.getenv("AGENT_TEMPERATURE", "0.1")) if temperature is None else float(temperature),
+        )
+        return res
+
     while state.iteration < max_iterations:
         # Check execution timeout
         elapsed_so_far = time.perf_counter() - start_time
@@ -230,7 +249,7 @@ def run_agent_workflow(
             logger.warning(f"Agent execution timed out after {elapsed_so_far:.2f}s (Max: {max_execution_time_seconds}s)")
             metrics.record_failure("ExecutionTimeout", state.iteration, {"elapsed": elapsed_so_far})
             state.status = "timeout"
-            return AgentResult(
+            return _finalize_result(AgentResult(
                 status="timeout",
                 answer="The request could not be completed within the allocated time limit.",
                 topic="System",
@@ -238,7 +257,7 @@ def run_agent_workflow(
                 trajectory=state.trajectory,
                 token_usage=state.token_usage,
                 metrics=metrics,
-            )
+            ))
 
         state.iteration += 1
         iter_prompt = build_agent_iteration_prompt(state)
@@ -250,6 +269,7 @@ def run_agent_workflow(
                 system_prompt=system_prompt,
                 iteration_prompt=iter_prompt,
                 provider=active_provider,
+                temperature=temperature,
             )
             state.token_usage.add(prompt_toks, comp_toks)
         except Exception as exc:
@@ -263,6 +283,7 @@ def run_agent_workflow(
                         system_prompt=system_prompt,
                         iteration_prompt=iter_prompt,
                         provider=fallback_prov,
+                        temperature=temperature,
                     )
                     state.token_usage.add(prompt_toks, comp_toks)
                 except Exception as fb_exc:
@@ -300,7 +321,7 @@ def run_agent_workflow(
             metrics.total_execution_time_seconds = round(time.perf_counter() - start_time, 4)
             metrics.token_usage = state.token_usage
 
-            return AgentResult(
+            return _finalize_result(AgentResult(
                 status="completed",
                 answer=state.final_answer,
                 topic=state.topic,
@@ -309,7 +330,7 @@ def run_agent_workflow(
                 clarification_required=False,
                 token_usage=state.token_usage,
                 metrics=metrics,
-            )
+            ))
 
         # Clarification action
         if action_name == "ask_user_clarification":
@@ -336,7 +357,7 @@ def run_agent_workflow(
             metrics.total_execution_time_seconds = round(time.perf_counter() - start_time, 4)
             metrics.token_usage = state.token_usage
 
-            return AgentResult(
+            return _finalize_result(AgentResult(
                 status="clarification_required",
                 answer=state.clarification_question,
                 topic="Clarification",
@@ -345,7 +366,7 @@ def run_agent_workflow(
                 clarification_required=True,
                 token_usage=state.token_usage,
                 metrics=metrics,
-            )
+            ))
 
         # 3. Handle Tool Dispatch
         action_args = action_dict.get("arguments", {})
@@ -404,7 +425,7 @@ def run_agent_workflow(
     metrics.total_execution_time_seconds = round(time.perf_counter() - start_time, 4)
     metrics.token_usage = state.token_usage
 
-    return AgentResult(
+    return _finalize_result(AgentResult(
         status="max_iterations_exceeded",
         answer="I reached the maximum reasoning iterations without being able to fully resolve your request. Please try refining your question.",
         topic="General",
@@ -413,4 +434,4 @@ def run_agent_workflow(
         clarification_required=False,
         token_usage=state.token_usage,
         metrics=metrics,
-    )
+    ))
